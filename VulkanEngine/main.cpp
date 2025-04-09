@@ -9,6 +9,8 @@
 #include <cstdlib>
 #include <vector>
 #include <map>
+#include <optional>
+
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -56,6 +58,15 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 	}
 }
 
+struct QueueFamilyIndices {
+	std::optional<uint32_t> graphicsFamily;
+
+	bool isComplete()
+	{
+		return graphicsFamily.has_value();
+	}
+};
+
 
 class HelloTringleApplication
 {
@@ -80,6 +91,9 @@ private:
 
 	//physical device
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+	 
+	//queue family
+	std::optional<uint32_t> graphicsFamily;
 	 
 
 	bool checkValidationLayerSupport()
@@ -121,9 +135,42 @@ private:
 		createInstance();
 		setupDebugMessenger();
 		pickPhysicalDevice();
+		createLogicalDevice(); 
+	} 
 
-	}
-	 
+	//queue family
+	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device)
+	{
+		QueueFamilyIndices indices;
+		
+		//Logic to find graphics queue family indices to populate struct with
+		uint32_t queueFamilyCount = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+		int i = 0;
+		for (const auto& queueFamily : queueFamilies)
+		{
+			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+			{
+				indices.graphicsFamily = i;
+			} 
+
+			if (indices.isComplete())
+			{
+				break;
+			}
+
+			i++;
+		}
+
+
+		return indices;
+	} 
+
+	//physical device
 	void pickPhysicalDevice()
 	{
 		uint32_t deviceCount = 0;
@@ -154,7 +201,9 @@ private:
 
 	bool isDeviceSuitable(VkPhysicalDevice device)
 	{
-		return true;
+		QueueFamilyIndices indices = findQueueFamilies(device);
+
+		return indices.isComplete();
 	}
 
 	void mainLoop()
