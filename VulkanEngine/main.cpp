@@ -127,6 +127,9 @@ private:
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 
+	//image view
+	std::vector<VkImageView> swapChainImageViews;
+
 	bool checkValidationLayerSupport()
 	{
 		uint32_t layerCount;
@@ -175,8 +178,41 @@ private:
 		createLogicalDevice();
 
 		createSwapChain();
+
+		createImageView();
 	}
-	
+	//image view
+	void createImageView()
+	{
+		swapChainImageViews.resize(swapChainImages.size());
+
+		for (size_t i = 0; i < swapChainImages.size(); i++)
+		{
+			VkImageViewCreateInfo createInfo{};
+
+			createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+			createInfo.image = swapChainImages[i];
+			createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+			createInfo.format = swapChainImageFormat;
+
+			createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+			createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+			createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			createInfo.subresourceRange.baseMipLevel = 0;
+			createInfo.subresourceRange.levelCount = 1;
+			createInfo.subresourceRange.baseArrayLayer = 0;
+			createInfo.subresourceRange.layerCount = 1;
+
+			if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("failed to create image views!");
+			} 
+		}
+	}
+
 	//swap chain 
 	void createSwapChain()
 	{
@@ -393,7 +429,7 @@ private:
 		}
 
 		vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-		vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &graphicsQueue);
+		vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
 	}
 
@@ -491,14 +527,14 @@ private:
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-		std::set<std::string> requiredExtenstion(deviceExtensions.begin(), deviceExtensions.end());
+		std::set<std::string> requiredExtension(deviceExtensions.begin(), deviceExtensions.end());
 
 		for (const auto& extension : availableExtensions)
 		{
-			requiredExtenstion.erase(extension.extensionName);
+			requiredExtension.erase(extension.extensionName);
 		}
 		 
-		return requiredExtenstion.empty();
+		return requiredExtension.empty();
 	}
 
 	void mainLoop()
@@ -507,11 +543,15 @@ private:
 		{
 			glfwPollEvents();
 		}*/
-		
 	}
 
 	void cleanup()
 	{
+		for (auto imageView : swapChainImageViews)
+		{
+			vkDestroyImageView(device, imageView, nullptr);
+		}
+
 		vkDestroySwapchainKHR(device, swapChain, nullptr);
 
 		if (enableValidationLayers)
