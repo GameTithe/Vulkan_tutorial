@@ -22,12 +22,4 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="shader.frag">
-      <Filter>shaders</Filter>
-    </None>
-    <None Include="shader.vert">
-      <Filter>shaders</Filter>
-    </None>
-  </ItemGroup>
 </Project>

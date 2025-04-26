@@ -178,14 +178,11 @@ private:
 	std::vector<VkCommandBuffer> commandBuffers;
 
 	//Synchronization
-	/*VkSemaphore imageAbailableSemaphore;
-	VkSemaphore renderFinishedSemaphore;
-	VkFence inFlightFence;
-	*/
 	std::vector<VkSemaphore> imageAbailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
 	std::vector<VkFence> inFlightFences;
-
+	
+	bool framebufferResized = false;
 
 	bool checkValidationLayerSupport()
 	{
@@ -217,13 +214,20 @@ private:
 	void initWindow() {
 
 		glfwInit();
-
+		
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 	}
 
+	static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
+	{
+		auto app = reinterpret_cast<HelloTringleApplication*>(glfwGetWindowUserPointer(window));
+		app->framebufferResized = true;
+	}
 	void initVulkan() {
 
 		createInstance(); 
@@ -235,7 +239,7 @@ private:
 
 		createSwapChain();
 
-		createImageView();
+		createImageViews();
 		
 		createRenderPass();
 		createGraphicsPipeline();
@@ -247,6 +251,26 @@ private:
 
 		//synchronization
 		createSyncObjects();
+	}
+	//recreae Swap chain
+	void recreateSwapChain()
+	{
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(window, &width, &height);
+	
+		//창 크기가 돌아올 때
+		while (width == 0 || height == 0)
+		{
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+		// GPU 기다리기
+		vkDeviceWaitIdle(device);
+
+		cleanupSwapChain();
+		createSwapChain();
+		createImageViews();
+		createFramebuffers();
 	}
 	
 	//synchronization
@@ -631,7 +655,7 @@ private:
 
 	}
 	//image view
-	void createImageView()
+	void createImageViews()
 	{
 		swapChainImageViews.resize(swapChainImages.size());
 
@@ -713,8 +737,9 @@ private:
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE; 
 
-		if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
-		{
+		VkResult result = vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain);
+		if (result != VK_SUCCESS)
+		{ 
 			throw std::runtime_error("failed to create swap chain!");
 		}
 
@@ -877,6 +902,7 @@ private:
 			throw std::runtime_error("failed to create logical device!");
 		}
 
+		// Get Queye Handlers
 		vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
 		vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 
@@ -1002,11 +1028,24 @@ private:
 	{
 		
 		vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
 		//acquiring image
 		uint32_t imageIndex;
-		vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAbailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+		VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAbailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+		if (result == VK_ERROR_OUT_OF_DATE_KHR)
+		{
+			recreateSwapChain();
+			return;
+		}
+
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+		{
+			throw std::runtime_error("failed to acquire swap chain image!");
+		}
+
+		//Onlt reset the fence if we are submitting work
+		vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
 		vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 		recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
@@ -1030,7 +1069,7 @@ private:
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-
+		// GPU에 커맨드 제출
 		if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to submit draw command buffer!");
@@ -1047,10 +1086,25 @@ private:
 		presentInfo.pImageIndices = &imageIndex; 
 		presentInfo.pResults = nullptr; // 생략 가능
 
-		vkQueuePresentKHR(presentQueue, &presentInfo); 
+		result = vkQueuePresentKHR(presentQueue, &presentInfo); 
+		if (result == VK_ERROR_OUT_OF_DATE_KHR 
+			|| result == VK_SUBOPTIMAL_KHR
+			|| framebufferResized)
+		{
+			recreateSwapChain();
+			framebufferResized = false;
+		}
+		else if( result != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to present swap chain image!");
+		}
+		
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	}
 	void cleanup()
 	{
+		cleanupSwapChain();
+
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(device, imageAbailableSemaphores[i], nullptr);
@@ -1059,23 +1113,12 @@ private:
 		}
 
 		vkDestroyCommandPool(device, commandPool, nullptr);
-
-		for (auto framebuffer : swapChainFramebuffers)
-		{
-			vkDestroyFramebuffer(device, framebuffer, nullptr);
-		}
-
+		  
 		vkDestroyPipeline(device, graphicsPipeline, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyRenderPass(device, renderPass, nullptr);
 
-		for (auto imageView : swapChainImageViews)
-		{
-			vkDestroyImageView(device, imageView, nullptr);
-		}
-
-		vkDestroySwapchainKHR(device, swapChain, nullptr);
-
+	  
 		if (enableValidationLayers)
 		{
 			DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
@@ -1083,14 +1126,30 @@ private:
 
 		//GPU관련된 것들을 destroy하고 device도 destroy하자
 		vkDestroyDevice(device, nullptr);
+		
+		//instance destroy 전에 suface destory 먼저
+		// glfw에서 destroy surface를 제공안함 
 		vkDestroySurfaceKHR(instance, surface, nullptr);
-
 		vkDestroyInstance(instance, nullptr);
 
 		glfwDestroyWindow(window);
 		glfwTerminate();
 
 	}
+
+	void cleanupSwapChain()
+	{ 
+		for (auto framebuffer : swapChainFramebuffers)
+		{
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		}
+		for (auto imageView : swapChainImageViews)
+		{
+			vkDestroyImageView(device, imageView, nullptr);
+		}
+		vkDestroySwapchainKHR(device, swapChain, nullptr);
+	}
+	
 
 	void createInstance()
 	{
