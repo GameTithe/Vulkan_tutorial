@@ -31,6 +31,9 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 //window
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -136,6 +139,10 @@ struct Vertex
 	glm::vec3 color;
 	glm::vec2 texCoord;
 
+	bool operator==(const Vertex& other) const
+	{
+		return (pos == other.pos) && (texCoord == other.texCoord) && (color == other.color);
+	}
 	static VkVertexInputBindingDescription getBindingDescription()
 	{
 		VkVertexInputBindingDescription bindingDescription{};
@@ -167,28 +174,18 @@ struct Vertex
 		
 		return attributeDescriptions;
 	}
-};
-//
-//const std::vector<Vertex> vertices = {
-//	{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f} }, // 아래 왼쪽: 빨간색
-//	{{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f} }, // 아래 오른쪽: 초록색
-//	{{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f} }, // 위 오른쪽: 파란색
-//	{{-0.5f,  0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f} },  // 위 왼쪽: 흰색
-//
-//	{{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f} }, // 아래 왼쪽: 빨간색
-//	{{ 0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f} }, // 아래 오른쪽: 초록색
-//	{{ 0.5f,  0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f} }, // 위 오른쪽: 파란색
-//	{{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}  // 위 왼쪽: 흰색
-//}; 
-//
-//const std::vector<uint16_t> indices = {
-//	0, 1, 2,  // 첫 번째 삼각형
-//	2, 3, 0,  // 두 번째 삼각형
-//
-//	4, 5, 6,
-//	6, 7, 4
-//};
+}; 
 
+namespace std {
+	template<> struct hash<Vertex> {
+		size_t operator()(const Vertex& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^
+				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+				(hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
+}
+ 
 // uniform buffer
 struct UnifromBufferObject
 {
@@ -400,66 +397,85 @@ private:
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
 		std::string warn, err;
-
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
-			MODEL_PATH.c_str()))
+		 
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str()))
 		{
 			throw std::runtime_error(warn + err);
 		}
 
-		// ───────────────────────────────────────────────────────────────────
-		// 1) 전체 vertex 범위 계산 (bounding box)
-		float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
-		float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
-		for (size_t i = 0; i < attrib.vertices.size(); i += 3) {
-			float x = attrib.vertices[i + 0];
-			float y = attrib.vertices[i + 1];
-			float z = attrib.vertices[i + 2];
-			minX = std::min(minX, x);  maxX = std::max(maxX, x);
-			minY = std::min(minY, y);  maxY = std::max(maxY, y);
-			minZ = std::min(minZ, z);  maxZ = std::max(maxZ, z);
+
+		// pos 범위 계산
+		float maxX = FLT_MIN, minX = FLT_MAX, maxY = FLT_MIN, minY = FLT_MAX, maxZ = FLT_MIN, minZ = FLT_MAX;
+
+		for (const auto& shape : shapes)
+		{
+			for (const auto& index : shape.mesh.indices)
+			{
+				float x = attrib.vertices[3 * index.vertex_index + 0];
+				float y = attrib.vertices[3 * index.vertex_index + 1];
+				float z = attrib.vertices[3 * index.vertex_index + 2];
+				
+				maxX = x > maxX ? x : maxX;
+				minX = x < minX ? x : minX;
+
+				maxY = y > maxY ? y : maxY;
+				minY = y < minY ? y : minY;
+				
+				maxZ = z > maxZ ? z : maxZ;
+				minZ = z < minZ ? z : minZ;
+			}
 		}
-		// 모델을 [-1,1] 범위에 맞추기 위한 scale
-		float extentX = maxX - minX;
-		float extentY = maxY - minY;
-		float extentZ = maxZ - minZ;
-		float scale = 2.0f / std::max({ extentX, extentY, extentZ, 0.01f });
 
-		// 중심점
-		glm::vec3 center = {
-			(minX + maxX) * 0.5f,
-			(minY + maxY) * 0.5f,
-			(minZ + maxZ) * 0.5f
-		};
-		// ───────────────────────────────────────────────────────────────────
+		float extentX = (maxX - minX);
+		float extentY = (maxY - minY);
+		float extentZ = (maxZ - minZ);
 
-		// 2) shape → vertices, indices 채우기 (scale & center 적용)
-		for (const auto& shape : shapes) {
-			for (const auto& index : shape.mesh.indices) {
-				glm::vec3 rawPos = {
+		std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+		for (const auto& shape : shapes)
+		{
+			for (const auto& index : shape.mesh.indices)
+			{
+				Vertex vertex{};
+
+				vertex.pos = 
+				{ 
 					attrib.vertices[3 * index.vertex_index + 0],
 					attrib.vertices[3 * index.vertex_index + 1],
 					attrib.vertices[3 * index.vertex_index + 2]
 				};
-				// normalize size & center
-				glm::vec3 normPos = (rawPos - center) * scale;
-
-				Vertex vertex{};
-				vertex.pos = normPos;
-				vertex.texCoord = {
+				
+				vertex.texCoord =
+				{
 					attrib.texcoords[2 * index.texcoord_index + 0],
 					1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
 				};
+
 				vertex.color = { 1.0f, 1.0f, 1.0f };
 
-				vertices.push_back(vertex);
-				indices.push_back(static_cast<uint32_t>(indices.size()));
+			//	if (uniqueVertices.count(vertex) == 0)
+				{
+					//uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+					vertices.push_back(vertex);
+				}
+				indices.push_back(uniqueVertices[vertex]);
+
+
 			}
 		}
 
-		// … 이후 normal 누적/정규화 등 기존 로직 …
-	}
+		float resize = 2.0f / (std::max({ extentX, extentY, extentZ, 0.001f }));
 
+		float centerX = (maxX + minX) * 0.5f, centerY = (maxY + minY) * 0.5f, centerZ = (maxZ+ minZ) * 0.5f;
+
+		// resacaling, repositioning
+		for (auto& vertex: vertices)
+		{
+			vertex.pos.x = ( vertex.pos.x - centerX ) * resize;
+			vertex.pos.y = ( vertex.pos.y - centerY ) * resize;
+			vertex.pos.z = ( vertex.pos.z - centerZ ) * resize;
+		}
+		// normal vector	정규화 
+	} 
 
 	//depth stencil 
 	bool hasStencilComponent(VkFormat format)
