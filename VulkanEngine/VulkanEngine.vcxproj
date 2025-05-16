@@ -76,8 +76,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;C:\Users\HP\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -94,8 +94,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;C:\Users\HP\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -112,8 +112,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;C:\Users\HP\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -130,8 +130,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>D:\HateCoding\VulkanEngine\Libraries\glfw-3.4.bin.WIN64\include;D:\HateCoding\VulkanEngine\Libraries\glm-master;C:\VulkanSDK\1.4.309.0\Include;$(SolutionDir)\Libraries\TinyObjLoader;C:\Users\HP\vcpkg\installed\x64-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,19 +143,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Common.h" />
     <ClCompile Include="Instance.cpp" />
+    <ClCompile Include="logging.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PhysicalDevice.cpp" />
+    <ClCompile Include="VulkanSample.cpp" />
+    <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag" />
     <None Include="shaders\shader.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Application.h" />
+    <ClInclude Include="error.h" />
     <ClInclude Include="Instance.h" />
+    <ClInclude Include="logging.hpp" />
     <ClInclude Include="ObjLoader.h" />
     <ClInclude Include="PhysicalDevice.h" />
     <ClInclude Include="Vertex.h" />
+    <ClInclude Include="VulkanSample.h" />
+    <ClInclude Include="Window.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
